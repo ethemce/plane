@@ -2,35 +2,38 @@
 import json
 
 # Django imports
-from django.db.models import Count, Prefetch, Q, F, Func, OuterRef
-from django.utils import timezone
 from django.core import serializers
+from django.db.models import Count, F, Func, OuterRef, Prefetch, Q
+from django.utils import timezone
+from django.core.serializers.json import DjangoJSONEncoder
 
 # Third party imports
 from rest_framework import status
 from rest_framework.response import Response
 
 # Module imports
-from .base import BaseAPIView, WebhookMixin
+from plane.api.serializers import (
+    IssueSerializer,
+    ModuleIssueSerializer,
+    ModuleSerializer,
+)
 from plane.app.permissions import ProjectEntityPermission
+from plane.bgtasks.issue_activites_task import issue_activity
 from plane.db.models import (
-    Project,
-    Module,
-    ModuleLink,
     Issue,
-    ModuleIssue,
     IssueAttachment,
     IssueLink,
+    Module,
+    ModuleIssue,
+    ModuleLink,
+    Project,
 )
-from plane.api.serializers import (
-    ModuleSerializer,
-    ModuleIssueSerializer,
-    IssueSerializer,
-)
-from plane.bgtasks.issue_activites_task import issue_activity
+
+from .base import BaseAPIView
+from plane.bgtasks.webhook_task import model_activity
 
 
-class ModuleAPIEndpoint(WebhookMixin, BaseAPIView):
+class ModuleAPIEndpoint(BaseAPIView):
     """
     This viewset automatically provides `list`, `create`, `retrieve`,
     `update` and `destroy` actions related to module.
@@ -162,6 +165,16 @@ class ModuleAPIEndpoint(WebhookMixin, BaseAPIView):
                     status=status.HTTP_409_CONFLICT,
                 )
             serializer.save()
+            # Send the model activity
+            model_activity.delay(
+                model_name="module",
+                model_id=str(serializer.data["id"]),
+                requested_data=request.data,
+                current_instance=None,
+                actor_id=request.user.id,
+                slug=slug,
+                origin=request.META.get("HTTP_ORIGIN"),
+            )
             module = Module.objects.get(pk=serializer.data["id"])
             serializer = ModuleSerializer(module)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -171,6 +184,11 @@ class ModuleAPIEndpoint(WebhookMixin, BaseAPIView):
         module = Module.objects.get(
             pk=pk, project_id=project_id, workspace__slug=slug
         )
+
+        current_instance = json.dumps(
+            ModuleSerializer(module).data, cls=DjangoJSONEncoder
+        )
+
         if module.archived_at:
             return Response(
                 {"error": "Archived module cannot be edited"},
@@ -203,6 +221,18 @@ class ModuleAPIEndpoint(WebhookMixin, BaseAPIView):
                     status=status.HTTP_409_CONFLICT,
                 )
             serializer.save()
+
+            # Send the model activity
+            model_activity.delay(
+                model_name="module",
+                model_id=str(serializer.data["id"]),
+                requested_data=request.data,
+                current_instance=current_instance,
+                actor_id=request.user.id,
+                slug=slug,
+                origin=request.META.get("HTTP_ORIGIN"),
+            )
+
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -259,7 +289,7 @@ class ModuleAPIEndpoint(WebhookMixin, BaseAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ModuleIssueAPIEndpoint(WebhookMixin, BaseAPIView):
+class ModuleIssueAPIEndpoint(BaseAPIView):
     """
     This viewset automatically provides `list`, `create`, `retrieve`,
     `update` and `destroy` actions related to module issues.
@@ -553,7 +583,7 @@ class ModuleArchiveUnarchiveAPIEndpoint(BaseAPIView):
             .order_by(self.kwargs.get("order_by", "-created_at"))
         )
 
-    def get(self, request, slug, project_id):
+    def get(self, request, slug, project_id, pk):
         return self.paginate(
             request=request,
             queryset=(self.get_queryset()),
@@ -569,6 +599,13 @@ class ModuleArchiveUnarchiveAPIEndpoint(BaseAPIView):
         module = Module.objects.get(
             pk=pk, project_id=project_id, workspace__slug=slug
         )
+        if module.status not in ["completed", "cancelled"]:
+            return Response(
+                {
+                    "error": "Only completed or cancelled modules can be archived"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         module.archived_at = timezone.now()
         module.save()
         return Response(status=status.HTTP_204_NO_CONTENT)

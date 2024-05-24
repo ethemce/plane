@@ -442,7 +442,7 @@ class IssueLinkSerializer(BaseSerializer):
             raise serializers.ValidationError("Invalid URL format.")
 
         # Check URL scheme
-        if not value.startswith(('http://', 'https://')):
+        if not value.startswith(("http://", "https://")):
             raise serializers.ValidationError("Invalid URL scheme.")
 
         return value
@@ -462,7 +462,7 @@ class IssueLinkSerializer(BaseSerializer):
         if IssueLink.objects.filter(
             url=validated_data.get("url"),
             issue_id=instance.issue_id,
-        ).exists():
+        ).exclude(pk=instance.id).exists():
             raise serializers.ValidationError(
                 {"error": "URL already exists for this Issue"}
             )
@@ -620,6 +620,27 @@ class IssueStateSerializer(DynamicBaseSerializer):
         fields = "__all__"
 
 
+class IssueInboxSerializer(DynamicBaseSerializer):
+    label_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+    )
+
+    class Meta:
+        model = Issue
+        fields = [
+            "id",
+            "name",
+            "priority",
+            "sequence_id",
+            "project_id",
+            "created_at",
+            "label_ids",
+            "created_by",
+        ]
+        read_only_fields = fields
+
+
 class IssueSerializer(DynamicBaseSerializer):
     # ids
     cycle_id = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -688,7 +709,7 @@ class IssueLiteSerializer(DynamicBaseSerializer):
 
 class IssueDetailSerializer(IssueSerializer):
     description_html = serializers.CharField()
-    is_subscribed = serializers.BooleanField()
+    is_subscribed = serializers.BooleanField(read_only=True)
 
     class Meta(IssueSerializer.Meta):
         fields = IssueSerializer.Meta.fields + [

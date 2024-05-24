@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { observer } from "mobx-react-lite";
+import { observer } from "mobx-react";
 import Link from "next/link";
 // headless ui
 import { FileText, HelpCircle, MessagesSquare, MoveLeft, Zap } from "lucide-react";
@@ -8,7 +8,7 @@ import { Transition } from "@headlessui/react";
 // ui
 import { DiscordIcon, GithubIcon, Tooltip } from "@plane/ui";
 // hooks
-import { useApplication } from "@/hooks/store";
+import { useAppTheme, useCommandPalette } from "@/hooks/store";
 import useOutsideClickDetector from "@/hooks/use-outside-click-detector";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // assets
@@ -38,10 +38,8 @@ export interface WorkspaceHelpSectionProps {
 
 export const WorkspaceHelpSection: React.FC<WorkspaceHelpSectionProps> = observer(() => {
   // store hooks
-  const {
-    theme: { sidebarCollapsed, toggleSidebar },
-    commandPalette: { toggleShortcutModal },
-  } = useApplication();
+  const { sidebarCollapsed, toggleSidebar } = useAppTheme();
+  const { toggleShortcutModal } = useCommandPalette();
   const { isMobile } = usePlatformOS();
   // states
   const [isNeedHelpOpen, setIsNeedHelpOpen] = useState(false);
@@ -61,14 +59,16 @@ export const WorkspaceHelpSection: React.FC<WorkspaceHelpSectionProps> = observe
   return (
     <>
       <div
-        className={`flex w-full items-center justify-between gap-1 self-baseline border-t border-custom-border-200 bg-custom-sidebar-background-100 px-4 py-2 ${
+        className={`flex w-full items-center justify-between gap-1 self-baseline border-t border-custom-border-200 bg-custom-sidebar-background-100 px-4 py-[6px] ${
           isCollapsed ? "flex-col" : ""
         }`}
       >
         {!isCollapsed && (
-          <div className="w-1/2 cursor-default rounded-md bg-green-500/10 px-2.5 py-1.5 text-center text-sm font-medium text-green-500 outline-none">
-            Free Plan
-          </div>
+          <Tooltip tooltipContent={`Version: v${packageJson.version}`} isMobile={isMobile}>
+            <div className="w-1/2 cursor-default rounded-md bg-green-500/10 px-2 py-1 text-center text-xs font-medium text-green-500 outline-none leading-6">
+              Community
+            </div>
+          </Tooltip>
         )}
         <div className={`flex items-center gap-1 ${isCollapsed ? "flex-col justify-center" : "w-1/2 justify-evenly"}`}>
           <Tooltip tooltipContent="Shortcuts" isMobile={isMobile}>
@@ -142,16 +142,18 @@ export const WorkspaceHelpSection: React.FC<WorkspaceHelpSectionProps> = observe
                     </span>
                   </Link>
                 ))}
-                <button
-                  type="button"
-                  onClick={handleCrispWindowShow}
-                  className="flex w-full items-center gap-x-2 rounded px-2 py-1 text-xs hover:bg-custom-background-80"
-                >
-                  <div className="grid flex-shrink-0 place-items-center">
-                    <MessagesSquare className="h-3.5 w-3.5 text-custom-text-200" />
-                  </div>
-                  <span className="text-xs">Chat with us</span>
-                </button>
+                {process.env.NEXT_PUBLIC_CRISP_ID && (
+                  <button
+                    type="button"
+                    onClick={handleCrispWindowShow}
+                    className="flex w-full items-center gap-x-2 rounded px-2 py-1 text-xs hover:bg-custom-background-80"
+                  >
+                    <div className="grid flex-shrink-0 place-items-center">
+                      <MessagesSquare className="h-3.5 w-3.5 text-custom-text-200" />
+                    </div>
+                    <span className="text-xs">Chat with us</span>
+                  </button>
+                )}
               </div>
               <div className="px-2 pb-1 pt-2 text-[10px]">Version: v{packageJson.version}</div>
             </div>

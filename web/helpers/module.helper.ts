@@ -1,9 +1,8 @@
 import sortBy from "lodash/sortBy";
-// helpers
-import { satisfiesDateFilter } from "@/helpers/filter.helper";
-import { getDate } from "@/helpers/date-time.helper";
-// types
 import { IModule, TModuleDisplayFilters, TModuleFilters, TModuleOrderByOptions } from "@plane/types";
+// helpers
+import { getDate } from "@/helpers/date-time.helper";
+import { satisfiesDateFilter } from "@/helpers/filter.helper";
 
 /**
  * @description orders modules based on their status
@@ -36,6 +35,7 @@ export const orderModules = (modules: IModule[], orderByKey: TModuleOrderByOptio
   if (orderByKey === "created_at") orderedModules = sortBy(modules, [(m) => m.created_at]);
   if (orderByKey === "-created_at") orderedModules = sortBy(modules, [(m) => !m.created_at]);
 
+  if (orderByKey === "sort_order") orderedModules = sortBy(modules, [(m) => m.sort_order]);
   return orderedModules;
 };
 
@@ -55,7 +55,7 @@ export const shouldFilterModule = (
   Object.keys(filters).forEach((key) => {
     const filterKey = key as keyof TModuleFilters;
     if (filterKey === "status" && filters.status && filters.status.length > 0)
-      fallsInFilters = fallsInFilters && filters.status.includes(module.status.toLowerCase());
+      fallsInFilters = fallsInFilters && filters.status.includes(module.status?.toLowerCase() ?? "");
     if (filterKey === "lead" && filters.lead && filters.lead.length > 0)
       fallsInFilters = fallsInFilters && filters.lead.includes(`${module.lead_id}`);
     if (filterKey === "members" && filters.members && filters.members.length > 0) {

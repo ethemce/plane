@@ -16,15 +16,16 @@ interface IPeekOverviewIssueDetails {
   issueId: string;
   issueOperations: TIssueOperations;
   disabled: boolean;
+  isArchived: boolean;
   isSubmitting: "submitting" | "submitted" | "saved";
   setIsSubmitting: (value: "submitting" | "submitted" | "saved") => void;
 }
 
 export const PeekOverviewIssueDetails: FC<IPeekOverviewIssueDetails> = observer((props) => {
-  const { workspaceSlug, issueId, issueOperations, disabled, isSubmitting, setIsSubmitting } = props;
+  const { workspaceSlug, issueId, issueOperations, disabled, isArchived, isSubmitting, setIsSubmitting } = props;
   // store hooks
   const { getProjectById } = useProject();
-  const { currentUser } = useUser();
+  const { data: currentUser } = useUser();
   const {
     issue: { getIssueById },
   } = useIssueDetail();
@@ -68,17 +69,20 @@ export const PeekOverviewIssueDetails: FC<IPeekOverviewIssueDetails> = observer(
         issueOperations={issueOperations}
         disabled={disabled}
         value={issue.name}
+        containerClassName="-ml-3"
       />
 
       <IssueDescriptionInput
         workspaceSlug={workspaceSlug}
         projectId={issue.project_id}
         issueId={issue.id}
-        value={issueDescription}
         initialValue={issueDescription}
+        // for now peek overview doesn't have live syncing while tab changes
+        swrIssueDescription={issueDescription}
         disabled={disabled}
         issueOperations={issueOperations}
         setIsSubmitting={(value) => setIsSubmitting(value)}
+        containerClassName="-ml-3 !mb-6 border-none"
       />
 
       {currentUser && (
@@ -87,6 +91,7 @@ export const PeekOverviewIssueDetails: FC<IPeekOverviewIssueDetails> = observer(
           projectId={issue.project_id}
           issueId={issueId}
           currentUser={currentUser}
+          disabled={isArchived}
         />
       )}
     </div>

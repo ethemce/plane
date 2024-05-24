@@ -79,7 +79,7 @@ class IssueSerializer(BaseSerializer):
                 parsed_str = html.tostring(parsed, encoding="unicode")
                 data["description_html"] = parsed_str
 
-        except Exception as e:
+        except Exception:
             raise serializers.ValidationError("Invalid HTML passed")
 
         # Validate assignees are from project
@@ -315,7 +315,7 @@ class IssueLinkSerializer(BaseSerializer):
         if IssueLink.objects.filter(
             url=validated_data.get("url"),
             issue_id=instance.issue_id,
-        ).exists():
+        ).exclude(pk=instance.id).exists():
             raise serializers.ValidationError(
                 {"error": "URL already exists for this Issue"}
             )
@@ -366,7 +366,7 @@ class IssueCommentSerializer(BaseSerializer):
                 parsed_str = html.tostring(parsed, encoding="unicode")
                 data["comment_html"] = parsed_str
 
-        except Exception as e:
+        except Exception:
             raise serializers.ValidationError("Invalid HTML passed")
         return data
 

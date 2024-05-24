@@ -197,16 +197,16 @@ export const CreateProjectForm: FC<Props> = observer((props) => {
                 onChange={(val: any) => {
                   let logoValue = {};
 
-                  if (val.type === "emoji")
+                  if (val?.type === "emoji")
                     logoValue = {
                       value: convertHexEmojiToDecimal(val.value.unified),
                       url: val.value.imageUrl,
                     };
-                  else if (val.type === "icon") logoValue = val.value;
+                  else if (val?.type === "icon") logoValue = val.value;
 
                   onChange({
-                    in_use: val.type,
-                    [val.type]: logoValue,
+                    in_use: val?.type,
+                    [val?.type]: logoValue,
                   });
                 }}
                 defaultIconColor={value.in_use && value.in_use === "icon" ? value.icon?.color : undefined}
@@ -365,7 +365,7 @@ export const CreateProjectForm: FC<Props> = observer((props) => {
               render={({ field: { value, onChange } }) => {
                 if (value === undefined || value === null || typeof value === "string")
                   return (
-                    <div className="h-7 flex-shrink-0" tabIndex={5}>
+                    <div className="flex-shrink-0" tabIndex={5}>
                       <MemberDropdown
                         value={value}
                         onChange={(lead) => onChange(lead === value ? null : lead)}

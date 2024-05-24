@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { observer } from "mobx-react-lite";
+import { observer } from "mobx-react";
 import { Search, X } from "lucide-react";
 import { IIssueFilterOptions, IIssueLabel, IState } from "@plane/types";
 // hooks
@@ -18,7 +18,7 @@ import {
   FilterModule,
 } from "@/components/issues";
 import { ILayoutDisplayFiltersOptions } from "@/constants/issue";
-import { useApplication } from "@/hooks/store";
+import { useAppRouter } from "@/hooks/store";
 // components
 // types
 // constants
@@ -30,14 +30,23 @@ type Props = {
   labels?: IIssueLabel[] | undefined;
   memberIds?: string[] | undefined;
   states?: IState[] | undefined;
+  cycleViewDisabled?: boolean;
+  moduleViewDisabled?: boolean;
 };
 
 export const FilterSelection: React.FC<Props> = observer((props) => {
-  const { filters, handleFiltersUpdate, layoutDisplayFiltersOptions, labels, memberIds, states } = props;
-  // hooks
   const {
-    router: { moduleId, cycleId },
-  } = useApplication();
+    filters,
+    handleFiltersUpdate,
+    layoutDisplayFiltersOptions,
+    labels,
+    memberIds,
+    states,
+    cycleViewDisabled = false,
+    moduleViewDisabled = false,
+  } = props;
+  // hooks
+  const { moduleId, cycleId } = useAppRouter();
   // states
   const [filtersSearchQuery, setFiltersSearchQuery] = useState("");
 
@@ -63,7 +72,7 @@ export const FilterSelection: React.FC<Props> = observer((props) => {
           )}
         </div>
       </div>
-      <div className="h-full w-full divide-y divide-custom-border-200 overflow-y-auto px-2.5 vertical-scrollbar scrollbar-sm">
+      <div className="vertical-scrollbar scrollbar-sm h-full w-full divide-y divide-custom-border-200 overflow-y-auto px-2.5">
         {/* priority */}
         {isFilterEnabled("priority") && (
           <div className="py-2">
@@ -111,7 +120,7 @@ export const FilterSelection: React.FC<Props> = observer((props) => {
         )}
 
         {/* cycle */}
-        {isFilterEnabled("cycle") && !cycleId && (
+        {isFilterEnabled("cycle") && !cycleId && !cycleViewDisabled && (
           <div className="py-2">
             <FilterCycle
               appliedFilters={filters.cycle ?? null}
@@ -122,7 +131,7 @@ export const FilterSelection: React.FC<Props> = observer((props) => {
         )}
 
         {/* module */}
-        {isFilterEnabled("module") && !moduleId && (
+        {isFilterEnabled("module") && !moduleId && !moduleViewDisabled && (
           <div className="py-2">
             <FilterModule
               appliedFilters={filters.module ?? null}

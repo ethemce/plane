@@ -1,16 +1,20 @@
 import { useCallback, useState } from "react";
 import router from "next/router";
-//components
 // icons
 import { Calendar, ChevronDown, Kanban, List } from "lucide-react";
+// types
 import { IIssueDisplayFilterOptions, IIssueDisplayProperties, IIssueFilterOptions, TIssueLayouts } from "@plane/types";
+// ui
 import { CustomMenu } from "@plane/ui";
-// hooks
-// constants
+// components
 import { ProjectAnalyticsModal } from "@/components/analytics";
 import { DisplayFiltersSelection, FilterSelection, FiltersDropdown } from "@/components/issues";
+// constants
 import { EIssueFilterType, EIssuesStoreType, ISSUE_DISPLAY_FILTERS_BY_LAYOUT, ISSUE_LAYOUTS } from "@/constants/issue";
-import { useIssues, useCycle, useProjectState, useLabel, useMember } from "@/hooks/store";
+// helpers
+import { calculateTotalFilters } from "@/helpers/filter.helper";
+// hooks
+import { useIssues, useCycle, useProjectState, useLabel, useMember, useProject } from "@/hooks/store";
 
 export const CycleMobileHeader = () => {
   const [analyticsModal, setAnalyticsModal] = useState(false);
@@ -24,6 +28,7 @@ export const CycleMobileHeader = () => {
   const { workspaceSlug, projectId, cycleId } = router.query;
   const cycleDetails = cycleId ? getCycleById(cycleId.toString()) : undefined;
   // store hooks
+  const { currentProjectDetails } = useProject();
   const {
     issuesFilter: { issueFilters, updateFilters },
   } = useIssues(EIssuesStoreType.CYCLE);
@@ -102,6 +107,8 @@ export const CycleMobileHeader = () => {
     [workspaceSlug, projectId, cycleId, updateFilters]
   );
 
+  const isFiltersApplied = calculateTotalFilters(issueFilters?.filters ?? {}) !== 0;
+
   return (
     <>
       <ProjectAnalyticsModal
@@ -141,6 +148,7 @@ export const CycleMobileHeader = () => {
                 <ChevronDown className="text-custom-text-200  h-4 w-4 ml-2" />
               </span>
             }
+            isFiltersApplied={isFiltersApplied}
           >
             <FilterSelection
               filters={issueFilters?.filters ?? {}}
@@ -151,6 +159,8 @@ export const CycleMobileHeader = () => {
               labels={projectLabels}
               memberIds={projectMemberIds ?? undefined}
               states={projectStates}
+              cycleViewDisabled={!currentProjectDetails?.cycle_view}
+              moduleViewDisabled={!currentProjectDetails?.module_view}
             />
           </FiltersDropdown>
         </div>
@@ -174,6 +184,8 @@ export const CycleMobileHeader = () => {
               displayProperties={issueFilters?.displayProperties ?? {}}
               handleDisplayPropertiesUpdate={handleDisplayProperties}
               ignoreGroupedFilters={["cycle"]}
+              cycleViewDisabled={!currentProjectDetails?.cycle_view}
+              moduleViewDisabled={!currentProjectDetails?.module_view}
             />
           </FiltersDropdown>
         </div>

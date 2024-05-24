@@ -4,6 +4,7 @@ import { IIssueDisplayFilterOptions, IIssueDisplayProperties, TIssue } from "@pl
 //types
 import { useTableKeyboardNavigation } from "@/hooks/use-table-keyboard-navigation";
 //components
+import { TRenderQuickActions } from "../list/list-view-types";
 import { SpreadsheetIssueRow } from "./issue-row";
 import { SpreadsheetHeader } from "./spreadsheet-header";
 
@@ -13,15 +14,12 @@ type Props = {
   handleDisplayFilterUpdate: (data: Partial<IIssueDisplayFilterOptions>) => void;
   issueIds: string[];
   isEstimateEnabled: boolean;
-  quickActions: (
-    issue: TIssue,
-    customActionButton?: React.ReactElement,
-    portalElement?: HTMLDivElement | null
-  ) => React.ReactNode;
+  quickActions: TRenderQuickActions;
   updateIssue: ((projectId: string, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   canEditProperties: (projectId: string | undefined) => boolean;
   portalElement: React.MutableRefObject<HTMLDivElement | null>;
   containerRef: MutableRefObject<HTMLTableElement | null>;
+  spreadsheetColumnsList: (keyof IIssueDisplayProperties)[];
 };
 
 export const SpreadsheetTable = observer((props: Props) => {
@@ -36,6 +34,7 @@ export const SpreadsheetTable = observer((props: Props) => {
     updateIssue,
     canEditProperties,
     containerRef,
+    spreadsheetColumnsList,
   } = props;
 
   // states
@@ -83,6 +82,7 @@ export const SpreadsheetTable = observer((props: Props) => {
         displayFilters={displayFilters}
         handleDisplayFilterUpdate={handleDisplayFilterUpdate}
         isEstimateEnabled={isEstimateEnabled}
+        spreadsheetColumnsList={spreadsheetColumnsList}
       />
       <tbody>
         {issueIds.map((id) => (
@@ -99,6 +99,7 @@ export const SpreadsheetTable = observer((props: Props) => {
             containerRef={containerRef}
             isScrolled={isScrolled}
             issueIds={issueIds}
+            spreadsheetColumnsList={spreadsheetColumnsList}
           />
         ))}
       </tbody>

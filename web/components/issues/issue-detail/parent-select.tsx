@@ -1,10 +1,10 @@
 import React from "react";
-import { observer } from "mobx-react-lite";
+import { observer } from "mobx-react";
 import Link from "next/link";
 import { Pencil, X } from "lucide-react";
 // hooks
 // components
-import { Tooltip } from "@plane/ui";
+import { TOAST_TYPE, Tooltip, setToast } from "@plane/ui";
 import { ParentIssuesListModal } from "@/components/issues";
 // ui
 // helpers
@@ -30,7 +30,13 @@ export const IssueParentSelect: React.FC<TIssueParentSelect> = observer((props) 
   const {
     issue: { getIssueById },
   } = useIssueDetail();
-  const { isParentIssueModalOpen, toggleParentIssueModal } = useIssueDetail();
+  const {
+    isParentIssueModalOpen,
+    toggleParentIssueModal,
+    removeSubIssue,
+    subIssues: { setSubIssueHelpers, fetchSubIssues },
+  } = useIssueDetail();
+
   // derived values
   const issue = getIssueById(issueId);
   const parentIssue = issue?.parent_id ? getIssueById(issue.parent_id) : undefined;
@@ -41,9 +47,30 @@ export const IssueParentSelect: React.FC<TIssueParentSelect> = observer((props) 
     try {
       await issueOperations.update(workspaceSlug, projectId, issueId, { parent_id: _issueId });
       await issueOperations.fetch(workspaceSlug, projectId, issueId);
-      toggleParentIssueModal(false);
+      _issueId && (await fetchSubIssues(workspaceSlug, projectId, _issueId));
+      toggleParentIssueModal(null);
     } catch (error) {
       console.error("something went wrong while fetching the issue");
+    }
+  };
+
+  const handleRemoveSubIssue = async (
+    workspaceSlug: string,
+    projectId: string,
+    parentIssueId: string,
+    issueId: string
+  ) => {
+    try {
+      setSubIssueHelpers(parentIssueId, "issue_loader", issueId);
+      await removeSubIssue(workspaceSlug, projectId, parentIssueId, issueId);
+      await fetchSubIssues(workspaceSlug, projectId, parentIssueId);
+      setSubIssueHelpers(parentIssueId, "issue_loader", issueId);
+    } catch (error) {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: "Error!",
+        message: "Something went wrong",
+      });
     }
   };
 
@@ -54,8 +81,8 @@ export const IssueParentSelect: React.FC<TIssueParentSelect> = observer((props) 
       <ParentIssuesListModal
         projectId={projectId}
         issueId={issueId}
-        isOpen={isParentIssueModalOpen}
-        handleClose={() => toggleParentIssueModal(false)}
+        isOpen={isParentIssueModalOpen === issueId}
+        handleClose={() => toggleParentIssueModal(null)}
         onChange={(issue: any) => handleParentIssue(issue?.id)}
       />
       <button
@@ -69,7 +96,7 @@ export const IssueParentSelect: React.FC<TIssueParentSelect> = observer((props) 
           },
           className
         )}
-        onClick={() => toggleParentIssueModal(true)}
+        onClick={() => toggleParentIssueModal(issue.id)}
         disabled={disabled}
       >
         {issue.parent_id && parentIssue ? (
@@ -92,7 +119,7 @@ export const IssueParentSelect: React.FC<TIssueParentSelect> = observer((props) 
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleParentIssue(null);
+                    handleRemoveSubIssue(workspaceSlug, projectId, parentIssue.id, issueId);
                   }}
                 >
                   <X className="h-2.5 w-2.5 text-custom-text-300 hover:text-red-500" />

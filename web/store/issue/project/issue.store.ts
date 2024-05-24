@@ -5,6 +5,8 @@ import update from "lodash/update";
 import { action, makeObservable, observable, runInAction, computed } from "mobx";
 // types
 import { TIssue, TGroupedIssues, TSubGroupedIssues, TLoader, TUnGroupedIssues, ViewFlags } from "@plane/types";
+// helpers
+import { issueCountBasedOnFilters } from "@/helpers/issue.helper";
 // base class
 import { IssueService, IssueArchiveService } from "@/services/issue";
 import { IssueHelperStore } from "../helpers/issue-helper.store";
@@ -17,7 +19,9 @@ export interface IProjectIssues {
   issues: Record<string, string[]>; // Record of project_id as key and issue_ids as value
   viewFlags: ViewFlags;
   // computed
+  issuesCount: number;
   groupedIssueIds: TGroupedIssues | TSubGroupedIssues | TUnGroupedIssues | undefined;
+  getIssueIds: (groupId?: string, subGroupId?: string) => string[] | undefined;
   // action
   fetchIssues: (workspaceSlug: string, projectId: string, loadType: TLoader) => Promise<TIssue[]>;
   createIssue: (workspaceSlug: string, projectId: string, data: Partial<TIssue>) => Promise<TIssue>;
@@ -50,6 +54,7 @@ export class ProjectIssues extends IssueHelperStore implements IProjectIssues {
       loader: observable.ref,
       issues: observable,
       // computed
+      issuesCount: computed,
       groupedIssueIds: computed,
       // action
       fetchIssues: action,
@@ -65,6 +70,22 @@ export class ProjectIssues extends IssueHelperStore implements IProjectIssues {
     // services
     this.issueService = new IssueService();
     this.issueArchiveService = new IssueArchiveService();
+  }
+
+  get issuesCount() {
+    let issuesCount = 0;
+
+    const displayFilters = this.rootStore?.projectIssuesFilter?.issueFilters?.displayFilters;
+    const groupedIssueIds = this.groupedIssueIds;
+    if (!displayFilters || !groupedIssueIds) return issuesCount;
+
+    const layout = displayFilters?.layout || undefined;
+    const groupBy = displayFilters?.group_by || undefined;
+    const subGroupBy = displayFilters?.sub_group_by || undefined;
+
+    if (!layout) return issuesCount;
+    issuesCount = issueCountBasedOnFilters(groupedIssueIds, layout, groupBy, subGroupBy);
+    return issuesCount;
   }
 
   get groupedIssueIds() {
@@ -99,6 +120,30 @@ export class ProjectIssues extends IssueHelperStore implements IProjectIssues {
 
     return issues;
   }
+
+  getIssueIds = (groupId?: string, subGroupId?: string) => {
+    const groupedIssueIds = this.groupedIssueIds;
+
+    const displayFilters = this.rootStore?.projectIssuesFilter?.issueFilters?.displayFilters;
+    if (!displayFilters || !groupedIssueIds) return undefined;
+
+    const subGroupBy = displayFilters?.sub_group_by;
+    const groupBy = displayFilters?.group_by;
+
+    if (!groupBy && !subGroupBy) {
+      return groupedIssueIds as string[];
+    }
+
+    if (groupBy && subGroupBy && groupId && subGroupId) {
+      return (groupedIssueIds as TSubGroupedIssues)?.[subGroupId]?.[groupId] as string[];
+    }
+
+    if (groupBy && groupId) {
+      return (groupedIssueIds as TGroupedIssues)?.[groupId] as string[];
+    }
+
+    return undefined;
+  };
 
   fetchIssues = async (workspaceSlug: string, projectId: string, loadType: TLoader = "init-loader") => {
     try {
@@ -197,6 +242,18 @@ export class ProjectIssues extends IssueHelperStore implements IProjectIssues {
       });
 
       const response = await this.createIssue(workspaceSlug, projectId, data);
+
+      if (data.cycle_id && data.cycle_id !== "")
+        await this.rootStore.cycleIssues.addIssueToCycle(workspaceSlug, projectId, data.cycle_id, [response.id]);
+
+      if (data.module_ids && data.module_ids.length > 0)
+        await this.rootStore.moduleIssues.changeModulesInIssue(
+          workspaceSlug,
+          projectId,
+          response.id,
+          data.module_ids,
+          []
+        );
 
       const quickAddIssueIndex = this.issues[projectId].findIndex((_issueId) => _issueId === data.id);
       if (quickAddIssueIndex >= 0)

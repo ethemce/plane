@@ -4,7 +4,7 @@ import { IIssueLabel, TIssue } from "@plane/types";
 // components
 import { TOAST_TYPE, setToast } from "@plane/ui";
 // hooks
-import { useIssueDetail, useLabel } from "@/hooks/store";
+import { useIssueDetail, useLabel, useProjectInbox } from "@/hooks/store";
 // ui
 // types
 import { LabelList, LabelCreate, IssueLabelSelectRoot } from "./";
@@ -28,6 +28,12 @@ export const IssueLabel: FC<TIssueLabel> = observer((props) => {
   // hooks
   const { updateIssue } = useIssueDetail();
   const { createLabel } = useLabel();
+  const {
+    issue: { getIssueById },
+  } = useIssueDetail();
+  const { getIssueInboxByIssueId } = useProjectInbox();
+
+  const issue = isInboxIssue ? getIssueInboxByIssueId(issueId)?.issue : getIssueById(issueId);
 
   const labelOperations: TLabelOperations = useMemo(
     () => ({
@@ -37,7 +43,7 @@ export const IssueLabel: FC<TIssueLabel> = observer((props) => {
           else await updateIssue(workspaceSlug, projectId, issueId, data);
         } catch (error) {
           setToast({
-            title: "Issue update failed",
+            title: "Error!",
             type: TOAST_TYPE.ERROR,
             message: "Issue update failed",
           });
@@ -48,14 +54,14 @@ export const IssueLabel: FC<TIssueLabel> = observer((props) => {
           const labelResponse = await createLabel(workspaceSlug, projectId, data);
           if (!isInboxIssue)
             setToast({
-              title: "Label created successfully",
+              title: "Success!",
               type: TOAST_TYPE.SUCCESS,
               message: "Label created successfully",
             });
           return labelResponse;
         } catch (error) {
           setToast({
-            title: "Label creation failed",
+            title: "Error!",
             type: TOAST_TYPE.ERROR,
             message: "Label creation failed",
           });
@@ -72,6 +78,7 @@ export const IssueLabel: FC<TIssueLabel> = observer((props) => {
         workspaceSlug={workspaceSlug}
         projectId={projectId}
         issueId={issueId}
+        values={issue?.label_ids || []}
         labelOperations={labelOperations}
         disabled={disabled}
       />
@@ -81,6 +88,7 @@ export const IssueLabel: FC<TIssueLabel> = observer((props) => {
           workspaceSlug={workspaceSlug}
           projectId={projectId}
           issueId={issueId}
+          values={issue?.label_ids || []}
           labelOperations={labelOperations}
         />
       )}
@@ -90,6 +98,7 @@ export const IssueLabel: FC<TIssueLabel> = observer((props) => {
           workspaceSlug={workspaceSlug}
           projectId={projectId}
           issueId={issueId}
+          values={issue?.label_ids || []}
           labelOperations={labelOperations}
         />
       )}

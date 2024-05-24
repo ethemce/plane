@@ -12,7 +12,6 @@ type Props = {
   alwaysRender?: boolean;
   placeholderChildren?: ReactNode;
   pauseHeightUpdateWhileRendering?: boolean;
-  changingReference?: any;
 };
 
 const RenderIfVisible: React.FC<Props> = (props) => {
@@ -24,10 +23,9 @@ const RenderIfVisible: React.FC<Props> = (props) => {
     as = "div",
     children,
     classNames = "",
-    alwaysRender = false, //render the children even if it is not visble in root
+    alwaysRender = false, //render the children even if it is not visible in root
     placeholderChildren = null, //placeholder children
     pauseHeightUpdateWhileRendering = false, //while this is true the height of the blocks are maintained
-    changingReference, //This is to force render when this reference is changed
   } = props;
   const [shouldVisible, setShouldVisible] = useState<boolean>(alwaysRender);
   const placeholderHeight = useRef<string>(defaultHeight);
@@ -48,7 +46,7 @@ const RenderIfVisible: React.FC<Props> = (props) => {
           // } else {
           //   setShouldVisible(entries[0].isIntersecting);
           // }
-          setShouldVisible(entries[0].isIntersecting);
+          setShouldVisible(entries[entries.length - 1].isIntersecting);
         },
         {
           root: root?.current,
@@ -63,7 +61,7 @@ const RenderIfVisible: React.FC<Props> = (props) => {
         }
       };
     }
-  }, [intersectionRef, children, changingReference, root, verticalOffset, horizontalOffset]);
+  }, [intersectionRef, children, root, verticalOffset, horizontalOffset]);
 
   //Set height after render
   useEffect(() => {

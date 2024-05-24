@@ -2,9 +2,11 @@ import React, { useRef } from "react";
 import { observer } from "mobx-react-lite";
 import { TIssue, IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane/types";
 // components
-import { Spinner } from "@plane/ui";
+import { LogoSpinner } from "@/components/common";
 import { SpreadsheetQuickAddIssueForm } from "@/components/issues";
+import { SPREADSHEET_PROPERTY_LIST } from "@/constants/spreadsheet";
 import { useProject } from "@/hooks/store";
+import { TRenderQuickActions } from "../list/list-view-types";
 import { SpreadsheetTable } from "./spreadsheet-table";
 // types
 //hooks
@@ -14,11 +16,7 @@ type Props = {
   displayFilters: IIssueDisplayFilterOptions;
   handleDisplayFilterUpdate: (data: Partial<IIssueDisplayFilterOptions>) => void;
   issueIds: string[] | undefined;
-  quickActions: (
-    issue: TIssue,
-    customActionButton?: React.ReactElement,
-    portalElement?: HTMLDivElement | null
-  ) => React.ReactNode;
+  quickActions: TRenderQuickActions;
   updateIssue: ((projectId: string, issueId: string, data: Partial<TIssue>) => Promise<void>) | undefined;
   openIssuesListModal?: (() => void) | null;
   quickAddCallback?: (
@@ -31,6 +29,7 @@ type Props = {
   canEditProperties: (projectId: string | undefined) => boolean;
   enableQuickCreateIssue?: boolean;
   disableIssueCreation?: boolean;
+  isWorkspaceLevel?: boolean;
 };
 
 export const SpreadsheetView: React.FC<Props> = observer((props) => {
@@ -46,6 +45,7 @@ export const SpreadsheetView: React.FC<Props> = observer((props) => {
     canEditProperties,
     enableQuickCreateIssue,
     disableIssueCreation,
+    isWorkspaceLevel = false,
   } = props;
   // refs
   const containerRef = useRef<HTMLTableElement | null>(null);
@@ -55,15 +55,23 @@ export const SpreadsheetView: React.FC<Props> = observer((props) => {
 
   const isEstimateEnabled: boolean = currentProjectDetails?.estimate !== null;
 
+  const spreadsheetColumnsList = isWorkspaceLevel
+    ? SPREADSHEET_PROPERTY_LIST
+    : SPREADSHEET_PROPERTY_LIST.filter((property) => {
+        if (property === "cycle" && !currentProjectDetails?.cycle_view) return false;
+        if (property === "modules" && !currentProjectDetails?.module_view) return false;
+        return true;
+      });
+
   if (!issueIds || issueIds.length === 0)
     return (
       <div className="grid h-full w-full place-items-center">
-        <Spinner />
+        <LogoSpinner />
       </div>
     );
 
   return (
-    <div className="relative flex flex-col h-full w-full overflow-x-hidden whitespace-nowrap rounded-lg bg-custom-background-200 text-custom-text-200">
+    <div className="relative flex h-full w-full flex-col overflow-x-hidden whitespace-nowrap rounded-lg bg-custom-background-200 text-custom-text-200">
       <div ref={portalRef} className="spreadsheet-menu-portal" />
       <div ref={containerRef} className="vertical-scrollbar horizontal-scrollbar scrollbar-lg h-full w-full">
         <SpreadsheetTable
@@ -77,6 +85,7 @@ export const SpreadsheetView: React.FC<Props> = observer((props) => {
           updateIssue={updateIssue}
           canEditProperties={canEditProperties}
           containerRef={containerRef}
+          spreadsheetColumnsList={spreadsheetColumnsList}
         />
       </div>
       <div className="border-t border-custom-border-100">

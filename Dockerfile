@@ -27,7 +27,7 @@ RUN yarn install
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
 COPY replace-env-vars.sh /usr/local/bin/
-USER root
+
 RUN chmod +x /usr/local/bin/replace-env-vars.sh
 
 RUN yarn turbo run build
@@ -82,28 +82,24 @@ COPY apiserver/templates templates/
 RUN apk --no-cache add "bash~=5.2"
 COPY apiserver/bin ./bin/
 
-RUN chmod +x ./bin/takeoff ./bin/worker
+RUN chmod +x ./bin/*
 RUN chmod -R 777 /code
 
 # Expose container port and run entry point script
 
 WORKDIR /app
 
-# Don't run production as root
-RUN addgroup --system --gid 1001 plane
-RUN adduser --system --uid 1001 captain
-
 COPY --from=installer /app/apps/app/next.config.js .
 COPY --from=installer /app/apps/app/package.json .
 COPY --from=installer /app/apps/space/next.config.js .
 COPY --from=installer /app/apps/space/package.json .
 
-COPY --from=installer --chown=captain:plane /app/apps/app/.next/standalone ./
+COPY --from=installer /app/apps/app/.next/standalone ./
 
-COPY --from=installer --chown=captain:plane /app/apps/app/.next/static ./apps/app/.next/static
+COPY --from=installer /app/apps/app/.next/static ./apps/app/.next/static
 
-COPY --from=installer --chown=captain:plane /app/apps/space/.next/standalone ./
-COPY --from=installer --chown=captain:plane /app/apps/space/.next ./apps/space/.next
+COPY --from=installer /app/apps/space/.next/standalone ./
+COPY --from=installer /app/apps/space/.next ./apps/space/.next
 
 ENV NEXT_TELEMETRY_DISABLED 1
 
@@ -118,7 +114,6 @@ ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
     BUILT_NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 
-USER root
 COPY replace-env-vars.sh /usr/local/bin/
 COPY start.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/replace-env-vars.sh

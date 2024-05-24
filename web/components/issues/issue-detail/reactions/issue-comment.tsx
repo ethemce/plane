@@ -3,10 +3,12 @@ import { observer } from "mobx-react-lite";
 import { IUser } from "@plane/types";
 // components
 import { TOAST_TYPE, Tooltip, setToast } from "@plane/ui";
+// helper
+import { cn } from "@/helpers/common.helper";
 import { renderEmoji } from "@/helpers/emoji.helper";
 import { formatTextList } from "@/helpers/issue.helper";
+// hooks
 import { useIssueDetail, useMember } from "@/hooks/store";
-// helper
 // types
 import { ReactionSelector } from "./reaction-selector";
 
@@ -15,10 +17,11 @@ export type TIssueCommentReaction = {
   projectId: string;
   commentId: string;
   currentUser: IUser;
+  disabled?: boolean;
 };
 
 export const IssueCommentReaction: FC<TIssueCommentReaction> = observer((props) => {
-  const { workspaceSlug, projectId, commentId, currentUser } = props;
+  const { workspaceSlug, projectId, commentId, currentUser, disabled = false } = props;
 
   // hooks
   const {
@@ -38,13 +41,13 @@ export const IssueCommentReaction: FC<TIssueCommentReaction> = observer((props) 
           if (!workspaceSlug || !projectId || !commentId) throw new Error("Missing fields");
           await createCommentReaction(workspaceSlug, projectId, commentId, reaction);
           setToast({
-            title: "Reaction created successfully",
+            title: "Success!",
             type: TOAST_TYPE.SUCCESS,
             message: "Reaction created successfully",
           });
         } catch (error) {
           setToast({
-            title: "Reaction creation failed",
+            title: "Error!",
             type: TOAST_TYPE.ERROR,
             message: "Reaction creation failed",
           });
@@ -55,13 +58,13 @@ export const IssueCommentReaction: FC<TIssueCommentReaction> = observer((props) 
           if (!workspaceSlug || !projectId || !commentId || !currentUser?.id) throw new Error("Missing fields");
           removeCommentReaction(workspaceSlug, projectId, commentId, reaction, currentUser.id);
           setToast({
-            title: "Reaction removed successfully",
+            title: "Success!",
             type: TOAST_TYPE.SUCCESS,
             message: "Reaction removed successfully",
           });
         } catch (error) {
           setToast({
-            title: "Reaction remove failed",
+            title: "Error!",
             type: TOAST_TYPE.ERROR,
             message: "Reaction remove failed",
           });
@@ -87,13 +90,15 @@ export const IssueCommentReaction: FC<TIssueCommentReaction> = observer((props) 
   };
 
   return (
-    <div className="mt-4 relative flex items-center gap-1.5">
-      <ReactionSelector
-        size="md"
-        position="top"
-        value={userReactions}
-        onSelect={issueCommentReactionOperations.react}
-      />
+    <div className="relative mt-4 flex items-center gap-1.5">
+      {!disabled && (
+        <ReactionSelector
+          size="md"
+          position="top"
+          value={userReactions}
+          onSelect={issueCommentReactionOperations.react}
+        />
+      )}
 
       {reactionIds &&
         Object.keys(reactionIds || {}).map(
@@ -103,11 +108,15 @@ export const IssueCommentReaction: FC<TIssueCommentReaction> = observer((props) 
                 <Tooltip tooltipContent={getReactionUsers(reaction)}>
                   <button
                     type="button"
-                    onClick={() => issueCommentReactionOperations.react(reaction)}
+                    onClick={() => !disabled && issueCommentReactionOperations.react(reaction)}
                     key={reaction}
-                    className={`flex h-full items-center gap-1 rounded-md px-2 py-1 text-sm text-custom-text-100 ${
-                      userReactions.includes(reaction) ? "bg-custom-primary-100/10" : "bg-custom-background-80"
-                    }`}
+                    className={cn(
+                      "flex h-full items-center gap-1 rounded-md px-2 py-1 text-sm text-custom-text-100",
+                      userReactions.includes(reaction) ? "bg-custom-primary-100/10" : "bg-custom-background-80",
+                      {
+                        "cursor-not-allowed": disabled,
+                      }
+                    )}
                   >
                     <span>{renderEmoji(reaction)}</span>
                     <span className={userReactions.includes(reaction) ? "text-custom-primary-100" : ""}>

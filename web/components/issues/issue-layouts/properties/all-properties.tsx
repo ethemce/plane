@@ -1,11 +1,14 @@
 import { useCallback, useMemo } from "react";
 import xor from "lodash/xor";
-import { observer } from "mobx-react-lite";
+import { observer } from "mobx-react";
 import { useRouter } from "next/router";
+// icons
 import { CalendarCheck2, CalendarClock, Layers, Link, Paperclip } from "lucide-react";
+// types
 import { TIssue, IIssueDisplayProperties, TIssuePriorities } from "@plane/types";
-// hooks
+// ui
 import { Tooltip } from "@plane/ui";
+// components
 import {
   DateDropdown,
   EstimateDropdown,
@@ -15,23 +18,19 @@ import {
   CycleDropdown,
   StateDropdown,
 } from "@/components/dropdowns";
-// helpers
-
-// types
 // constants
 import { ISSUE_UPDATED } from "@/constants/event-tracker";
 import { EIssuesStoreType } from "@/constants/issue";
+// helpers
 import { cn } from "@/helpers/common.helper";
 import { getDate, renderFormattedPayloadDate } from "@/helpers/date-time.helper";
 import { shouldHighlightIssueDueDate } from "@/helpers/issue.helper";
-import { useEventTracker, useEstimate, useLabel, useIssues, useProjectState } from "@/hooks/store";
+// hooks
+import { useEventTracker, useEstimate, useLabel, useIssues, useProjectState, useProject } from "@/hooks/store";
 import { usePlatformOS } from "@/hooks/use-platform-os";
-// components
+// local components
 import { IssuePropertyLabels } from "../properties/labels";
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
-// helpers
-// types
-// constants
 
 export interface IIssueProperties {
   issue: TIssue;
@@ -45,44 +44,47 @@ export interface IIssueProperties {
 export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
   const { issue, updateIssue, displayProperties, activeLayout, isReadOnly, className } = props;
   // store hooks
+  const { getProjectById } = useProject();
   const { labelMap } = useLabel();
   const { captureIssueEvent } = useEventTracker();
   const {
-    issues: { addModulesToIssue, removeModulesFromIssue },
+    issues: { changeModulesInIssue },
   } = useIssues(EIssuesStoreType.MODULE);
   const {
-    issues: { addIssueToCycle, removeIssueFromCycle },
+    issues: { addCycleToIssue, removeCycleFromIssue },
   } = useIssues(EIssuesStoreType.CYCLE);
   const { areEstimatesEnabledForCurrentProject } = useEstimate();
   const { getStateById } = useProjectState();
   const { isMobile } = usePlatformOS();
+  const projectDetails = getProjectById(issue.project_id);
   // router
   const router = useRouter();
   const { workspaceSlug } = router.query;
   const currentLayout = `${activeLayout} layout`;
   // derived values
   const stateDetails = getStateById(issue.state_id);
+  const subIssueCount = issue.sub_issues_count;
 
   const issueOperations = useMemo(
     () => ({
       addModulesToIssue: async (moduleIds: string[]) => {
         if (!workspaceSlug || !issue.project_id || !issue.id) return;
-        await addModulesToIssue?.(workspaceSlug.toString(), issue.project_id, issue.id, moduleIds);
+        await changeModulesInIssue?.(workspaceSlug.toString(), issue.project_id, issue.id, moduleIds, []);
       },
       removeModulesFromIssue: async (moduleIds: string[]) => {
         if (!workspaceSlug || !issue.project_id || !issue.id) return;
-        await removeModulesFromIssue?.(workspaceSlug.toString(), issue.project_id, issue.id, moduleIds);
+        await changeModulesInIssue?.(workspaceSlug.toString(), issue.project_id, issue.id, [], moduleIds);
       },
       addIssueToCycle: async (cycleId: string) => {
         if (!workspaceSlug || !issue.project_id || !issue.id) return;
-        await addIssueToCycle?.(workspaceSlug.toString(), issue.project_id, cycleId, [issue.id]);
+        await addCycleToIssue?.(workspaceSlug.toString(), issue.project_id, cycleId, issue.id);
       },
-      removeIssueFromCycle: async (cycleId: string) => {
+      removeIssueFromCycle: async () => {
         if (!workspaceSlug || !issue.project_id || !issue.id) return;
-        await removeIssueFromCycle?.(workspaceSlug.toString(), issue.project_id, cycleId, issue.id);
+        await removeCycleFromIssue?.(workspaceSlug.toString(), issue.project_id, issue.id);
       },
     }),
-    [workspaceSlug, issue, addModulesToIssue, removeModulesFromIssue, addIssueToCycle, removeIssueFromCycle]
+    [workspaceSlug, issue, changeModulesInIssue, addCycleToIssue, removeCycleFromIssue]
   );
 
   const handleState = (stateId: string) => {
@@ -172,7 +174,7 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
     (cycleId: string | null) => {
       if (!issue || issue.cycle_id === cycleId) return;
       if (cycleId) issueOperations.addIssueToCycle?.(cycleId);
-      else issueOperations.removeIssueFromCycle?.(issue.cycle_id ?? "");
+      else issueOperations.removeIssueFromCycle?.();
 
       captureIssueEvent({
         eventName: ISSUE_UPDATED,
@@ -252,12 +254,17 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
   const maxDate = getDate(issue.target_date);
   maxDate?.setDate(maxDate.getDate());
 
+  const handleEventPropagation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
   return (
     <div className={className}>
       {/* basic properties */}
       {/* state */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="state">
-        <div className="h-5">
+        <div className="h-5" onClick={handleEventPropagation}>
           <StateDropdown
             buttonContainerClassName="truncate max-w-40"
             value={issue.state_id}
@@ -272,7 +279,7 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
 
       {/* priority */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="priority">
-        <div className="h-5">
+        <div className="h-5" onClick={handleEventPropagation}>
           <PriorityDropdown
             value={issue?.priority || null}
             onChange={handlePriority}
@@ -286,19 +293,21 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
 
       {/* label */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="labels">
-        <IssuePropertyLabels
-          projectId={issue?.project_id || null}
-          value={issue?.label_ids || null}
-          defaultOptions={defaultLabelOptions}
-          onChange={handleLabel}
-          disabled={isReadOnly}
-          hideDropdownArrow
-        />
+        <div className="h-5" onClick={handleEventPropagation}>
+          <IssuePropertyLabels
+            projectId={issue?.project_id || null}
+            value={issue?.label_ids || null}
+            defaultOptions={defaultLabelOptions}
+            onChange={handleLabel}
+            disabled={isReadOnly}
+            hideDropdownArrow
+          />
+        </div>
       </WithDisplayPropertiesHOC>
 
       {/* start date */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="start_date">
-        <div className="h-5">
+        <div className="h-5" onClick={handleEventPropagation}>
           <DateDropdown
             value={issue.start_date ?? null}
             onChange={handleStartDate}
@@ -314,7 +323,7 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
 
       {/* target/due date */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="due_date">
-        <div className="h-5">
+        <div className="h-5" onClick={handleEventPropagation}>
           <DateDropdown
             value={issue?.target_date ?? null}
             onChange={handleTargetDate}
@@ -332,7 +341,7 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
 
       {/* assignee */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="assignee">
-        <div className="h-5">
+        <div className="h-5" onClick={handleEventPropagation}>
           <MemberDropdown
             projectId={issue?.project_id}
             value={issue?.assignee_ids}
@@ -349,41 +358,45 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
       </WithDisplayPropertiesHOC>
 
       {/* modules */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="modules">
-        <div className="h-5">
-          <ModuleDropdown
-            buttonContainerClassName="truncate max-w-40"
-            projectId={issue?.project_id}
-            value={issue?.module_ids ?? []}
-            onChange={handleModule}
-            disabled={isReadOnly}
-            multiple
-            buttonVariant="border-with-text"
-            showCount
-            showTooltip
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
+      {projectDetails?.module_view && (
+        <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="modules">
+          <div className="h-5" onClick={handleEventPropagation}>
+            <ModuleDropdown
+              buttonContainerClassName="truncate max-w-40"
+              projectId={issue?.project_id}
+              value={issue?.module_ids ?? []}
+              onChange={handleModule}
+              disabled={isReadOnly}
+              multiple
+              buttonVariant="border-with-text"
+              showCount
+              showTooltip
+            />
+          </div>
+        </WithDisplayPropertiesHOC>
+      )}
 
       {/* cycles */}
-      <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="cycle">
-        <div className="h-5">
-          <CycleDropdown
-            buttonContainerClassName="truncate max-w-40"
-            projectId={issue?.project_id}
-            value={issue?.cycle_id}
-            onChange={handleCycle}
-            disabled={isReadOnly}
-            buttonVariant="border-with-text"
-            showTooltip
-          />
-        </div>
-      </WithDisplayPropertiesHOC>
+      {projectDetails?.cycle_view && (
+        <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="cycle">
+          <div className="h-5" onClick={handleEventPropagation}>
+            <CycleDropdown
+              buttonContainerClassName="truncate max-w-40"
+              projectId={issue?.project_id}
+              value={issue?.cycle_id}
+              onChange={handleCycle}
+              disabled={isReadOnly}
+              buttonVariant="border-with-text"
+              showTooltip
+            />
+          </div>
+        </WithDisplayPropertiesHOC>
+      )}
 
       {/* estimates */}
       {areEstimatesEnabledForCurrentProject && (
         <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="estimate">
-          <div className="h-5">
+          <div className="h-5" onClick={handleEventPropagation}>
             <EstimateDropdown
               value={issue.estimate_point}
               onChange={handleEstimate}
@@ -401,20 +414,24 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
       <WithDisplayPropertiesHOC
         displayProperties={displayProperties}
         displayPropertyKey="sub_issue_count"
-        shouldRenderProperty={(properties) => !!properties.sub_issue_count && !!issue.sub_issues_count}
+        shouldRenderProperty={(properties) => !!properties.sub_issue_count && !!subIssueCount}
       >
-        <Tooltip tooltipHeading="Sub-issues" tooltipContent={`${issue.sub_issues_count}`} isMobile={isMobile}>
+        <Tooltip tooltipHeading="Sub-issues" tooltipContent={`${subIssueCount}`} isMobile={isMobile}>
           <div
-            onClick={issue.sub_issues_count ? redirectToIssueDetail : () => {}}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              if (subIssueCount) redirectToIssueDetail();
+            }}
             className={cn(
               "flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded border-[0.5px] border-custom-border-300 px-2.5 py-1",
               {
-                "hover:bg-custom-background-80 cursor-pointer": issue.sub_issues_count,
+                "hover:bg-custom-background-80 cursor-pointer": subIssueCount,
               }
             )}
           >
             <Layers className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
-            <div className="text-xs">{issue.sub_issues_count}</div>
+            <div className="text-xs">{subIssueCount}</div>
           </div>
         </Tooltip>
       </WithDisplayPropertiesHOC>
@@ -426,7 +443,10 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
         shouldRenderProperty={(properties) => !!properties.attachment_count && !!issue.attachment_count}
       >
         <Tooltip tooltipHeading="Attachments" tooltipContent={`${issue.attachment_count}`} isMobile={isMobile}>
-          <div className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded border-[0.5px] border-custom-border-300 px-2.5 py-1">
+          <div
+            className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded border-[0.5px] border-custom-border-300 px-2.5 py-1"
+            onClick={handleEventPropagation}
+          >
             <Paperclip className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
             <div className="text-xs">{issue.attachment_count}</div>
           </div>
@@ -440,7 +460,10 @@ export const IssueProperties: React.FC<IIssueProperties> = observer((props) => {
         shouldRenderProperty={(properties) => !!properties.link && !!issue.link_count}
       >
         <Tooltip tooltipHeading="Links" tooltipContent={`${issue.link_count}`} isMobile={isMobile}>
-          <div className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded border-[0.5px] border-custom-border-300 px-2.5 py-1">
+          <div
+            className="flex h-5 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded border-[0.5px] border-custom-border-300 px-2.5 py-1"
+            onClick={handleEventPropagation}
+          >
             <Link className="h-3 w-3 flex-shrink-0" strokeWidth={2} />
             <div className="text-xs">{issue.link_count}</div>
           </div>

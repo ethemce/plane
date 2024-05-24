@@ -1,12 +1,11 @@
 # Python imports
-from urllib.parse import urlparse
-
 import zoneinfo
 
 # Django imports
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
+from django.urls import resolve
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -18,7 +17,6 @@ from rest_framework.views import APIView
 # Module imports
 from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.api.rate_limit import ApiKeyRateThrottle
-from plane.bgtasks.webhook_task import send_webhook
 from plane.utils.exception_logger import log_exception
 from plane.utils.paginator import BasePaginator
 
@@ -35,40 +33,6 @@ class TimezoneMixin:
             timezone.activate(zoneinfo.ZoneInfo(request.user.user_timezone))
         else:
             timezone.deactivate()
-
-
-class WebhookMixin:
-    webhook_event = None
-    bulk = False
-
-    def finalize_response(self, request, response, *args, **kwargs):
-        response = super().finalize_response(
-            request, response, *args, **kwargs
-        )
-
-        # Check for the case should webhook be sent
-        if (
-            self.webhook_event
-            and self.request.method in ["POST", "PATCH", "DELETE"]
-            and response.status_code in [200, 201, 204]
-        ):
-            url = request.build_absolute_uri()
-            parsed_url = urlparse(url)
-            # Extract the scheme and netloc
-            scheme = parsed_url.scheme
-            netloc = parsed_url.netloc
-            # Push the object to delay
-            send_webhook.delay(
-                event=self.webhook_event,
-                payload=response.data,
-                kw=self.kwargs,
-                action=self.request.method,
-                slug=self.workspace_slug,
-                bulk=self.bulk,
-                current_site=f"{scheme}://{netloc}",
-            )
-
-        return response
 
 
 class BaseAPIView(TimezoneMixin, APIView, BasePaginator):
@@ -165,7 +129,12 @@ class BaseAPIView(TimezoneMixin, APIView, BasePaginator):
 
     @property
     def project_id(self):
-        return self.kwargs.get("project_id", None)
+        project_id = self.kwargs.get("project_id", None)
+        if project_id:
+            return project_id
+
+        if resolve(self.request.path_info).url_name == "project":
+            return self.kwargs.get("pk", None)
 
     @property
     def fields(self):

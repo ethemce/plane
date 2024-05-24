@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd";
-import { observer } from "mobx-react-lite";
+import { observer } from "mobx-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
@@ -32,9 +32,8 @@ import {
 import { LeaveProjectModal, ProjectLogo, PublishProjectModal } from "@/components/project";
 import { EUserProjectRoles } from "@/constants/project";
 import { cn } from "@/helpers/common.helper";
-import { getNumberCount } from "@/helpers/string.helper";
 // hooks
-import { useApplication, useEventTracker, useInbox, useProject } from "@/hooks/store";
+import { useAppTheme, useEventTracker, useProject } from "@/hooks/store";
 import useOutsideClickDetector from "@/hooks/use-outside-click-detector";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // helpers
@@ -92,10 +91,9 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { projectId, provided, snapshot, handleCopyText, shortContextMenu = false, disableDrag } = props;
   // store hooks
-  const { theme: themeStore } = useApplication();
+  const { sidebarCollapsed: isCollapsed, toggleSidebar } = useAppTheme();
   const { setTrackElement } = useEventTracker();
   const { addProjectToFavorites, removeProjectFromFavorites, getProjectById } = useProject();
-  const { getInboxesByProjectId, getInboxById } = useInbox();
   const { isMobile } = usePlatformOS();
   // states
   const [leaveProjectModalOpen, setLeaveProjectModal] = useState(false);
@@ -108,9 +106,6 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
   const { workspaceSlug, projectId: URLProjectId } = router.query;
   // derived values
   const project = getProjectById(projectId);
-  const isCollapsed = themeStore.sidebarCollapsed;
-  const inboxesMap = project?.inbox_view ? getInboxesByProjectId(projectId) : undefined;
-  const inboxDetails = inboxesMap && inboxesMap.length > 0 ? getInboxById(inboxesMap[0]) : undefined;
   // auth
   const isAdmin = project?.member_role === EUserProjectRoles.ADMIN;
   const isViewerOrGuest =
@@ -161,7 +156,7 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
 
   const handleProjectClick = () => {
     if (window.innerWidth < 768) {
-      themeStore.toggleSidebar();
+      toggleSidebar();
     }
   };
 
@@ -218,18 +213,18 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
                 <Disclosure.Button
                   as="div"
                   className={cn(
-                    "flex items-center justify-between flex-grow cursor-pointer select-none truncate text-left text-sm font-medium",
+                    "flex flex-grow cursor-pointer select-none items-center justify-between truncate text-left text-sm font-medium",
                     {
                       "justify-center": isCollapsed,
                     }
                   )}
                 >
                   <div
-                    className={cn("w-full flex-grow flex items-center gap-1 truncate", {
+                    className={cn("flex w-full flex-grow items-center gap-1 truncate", {
                       "justify-center": isCollapsed,
                     })}
                   >
-                    <div className="h-7 w-7 grid place-items-center">
+                    <div className="h-7 w-7 grid place-items-center flex-shrink-0">
                       <ProjectLogo logo={project.logo_props} />
                     </div>
                     {!isCollapsed && <p className="truncate text-custom-sidebar-text-200">{project.name}</p>}
@@ -237,7 +232,7 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
                   {!isCollapsed && (
                     <ChevronDown
                       className={cn(
-                        "hidden h-4 w-4 flex-shrink-0 mb-0.5 text-custom-sidebar-text-400 duration-300 group-hover:block",
+                        "mb-0.5 hidden h-4 w-4 flex-shrink-0 text-custom-sidebar-text-400 duration-300 group-hover:block",
                         {
                           "rotate-180": open,
                           block: isMenuActive,
@@ -277,7 +272,7 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
                   {project.is_favorite && (
                     <CustomMenu.MenuItem onClick={handleRemoveFromFavorites}>
                       <span className="flex items-center justify-start gap-2">
-                        <Star className="h-3.5 w-3.5 fill-orange-400 stroke-[1.5] text-orange-400" />
+                        <Star className="h-3.5 w-3.5 fill-yellow-500 stroke-yellow-500" />
                         <span>Remove from favorites</span>
                       </span>
                     </CustomMenu.MenuItem>
@@ -375,36 +370,8 @@ export const ProjectSidebarListItem: React.FC<Props> = observer((props) => {
                                 : "text-custom-sidebar-text-300 hover:bg-custom-sidebar-background-80 focus:bg-custom-sidebar-background-80"
                             } ${isCollapsed ? "justify-center" : ""}`}
                           >
-                            {item.name === "Inbox" && inboxDetails ? (
-                              <>
-                                <div className="flex items-center justify-center relative">
-                                  {inboxDetails?.pending_issue_count > 0 && (
-                                    <span
-                                      className={cn(
-                                        "absolute -right-1.5 -top-1 px-0.5 h-3.5 w-3.5 flex items-center tracking-tight justify-center rounded-full text-[0.5rem] border-[0.5px] border-custom-sidebar-border-200 bg-custom-background-80 text-custom-text-100",
-                                        {
-                                          "text-[0.375rem] leading-5": inboxDetails?.pending_issue_count >= 100,
-                                        },
-                                        {
-                                          "border-none bg-custom-primary-300 text-white": router.asPath.includes(
-                                            item.href
-                                          ),
-                                        }
-                                      )}
-                                    >
-                                      {getNumberCount(inboxDetails?.pending_issue_count)}
-                                    </span>
-                                  )}
-                                  <item.Icon className="h-4 w-4 stroke-[1.5]" />
-                                </div>
-                                {!isCollapsed && item.name}
-                              </>
-                            ) : (
-                              <>
-                                <item.Icon className="h-4 w-4 stroke-[1.5]" />
-                                {!isCollapsed && item.name}
-                              </>
-                            )}
+                            <item.Icon className="h-4 w-4 stroke-[1.5]" />
+                            {!isCollapsed && item.name}
                           </div>
                         </Tooltip>
                       </span>

@@ -39,7 +39,7 @@ const ArchivedIssueDetailsPage: NextPageWithLayout = observer(() => {
     membership: { currentProjectRole },
   } = useUser();
 
-  const { isLoading } = useSWR(
+  const { isLoading, data: swrArchivedIssueDetails } = useSWR(
     workspaceSlug && projectId && archivedIssueId
       ? `ARCHIVED_ISSUE_DETAIL_${workspaceSlug}_${projectId}_${archivedIssueId}`
       : null,
@@ -66,13 +66,8 @@ const ArchivedIssueDetailsPage: NextPageWithLayout = observer(() => {
       .then(() => {
         setToast({
           type: TOAST_TYPE.SUCCESS,
-          title: "Success",
-          message:
-            issue &&
-            `${getProjectById(issue.project_id)
-              ?.identifier}-${issue?.sequence_id} is restored successfully under the project ${getProjectById(
-              issue.project_id
-            )?.name}`,
+          title: "Restore success",
+          message: "Your issue can be found in project issues.",
         });
         router.push(`/${workspaceSlug}/projects/${projectId}/issues/${archivedIssueId}`);
       })
@@ -80,7 +75,7 @@ const ArchivedIssueDetailsPage: NextPageWithLayout = observer(() => {
         setToast({
           type: TOAST_TYPE.ERROR,
           title: "Error!",
-          message: "Something went wrong. Please try again.",
+          message: "Issue could not be restored. Please try again.",
         });
       })
       .finally(() => setIsRestoring(false));
@@ -108,9 +103,9 @@ const ArchivedIssueDetailsPage: NextPageWithLayout = observer(() => {
         </Loader>
       ) : (
         <div className="flex h-full overflow-hidden">
-          <div className="h-full w-full space-y-3 divide-y-2 divide-custom-border-200 overflow-y-auto p-5">
+          <div className="h-full w-full space-y-3 divide-y-2 divide-custom-border-200 overflow-y-auto">
             {issue?.archived_at && canRestoreIssue && (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-custom-border-200 bg-custom-background-90 px-2.5 py-2 text-sm text-custom-text-200">
+              <div className="flex items-center justify-between gap-2 rounded-md border border-custom-border-200 bg-custom-background-90 px-2.5 py-2 text-sm text-custom-text-200 my-5 mx-3">
                 <div className="flex items-center gap-2">
                   <ArchiveIcon className="h-4 w-4" />
                   <p>This issue has been archived.</p>
@@ -128,6 +123,7 @@ const ArchivedIssueDetailsPage: NextPageWithLayout = observer(() => {
             )}
             {workspaceSlug && projectId && archivedIssueId && (
               <IssueDetailRoot
+                swrIssueDetails={swrArchivedIssueDetails}
                 workspaceSlug={workspaceSlug.toString()}
                 projectId={projectId.toString()}
                 issueId={archivedIssueId.toString()}

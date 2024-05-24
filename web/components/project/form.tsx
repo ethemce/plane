@@ -157,16 +157,16 @@ export const ProjectDetailsForm: FC<IProjectDetailsForm> = (props) => {
                     onChange={(val) => {
                       let logoValue = {};
 
-                      if (val.type === "emoji")
+                      if (val?.type === "emoji")
                         logoValue = {
                           value: convertHexEmojiToDecimal(val.value.unified),
                           url: val.value.imageUrl,
                         };
-                      else if (val.type === "icon") logoValue = val.value;
+                      else if (val?.type === "icon") logoValue = val.value;
 
                       onChange({
-                        in_use: val.type,
-                        [val.type]: logoValue,
+                        in_use: val?.type,
+                        [val?.type]: logoValue,
                       });
                     }}
                     defaultIconColor={value?.in_use && value.in_use === "icon" ? value?.icon?.color : undefined}
@@ -216,6 +216,10 @@ export const ProjectDetailsForm: FC<IProjectDetailsForm> = (props) => {
             name="name"
             rules={{
               required: "Name is required",
+              maxLength: {
+                value: 255,
+                message: "Project name should be less than 255 characters",
+              },
             }}
             render={({ field: { value, onChange, ref } }) => (
               <Input
@@ -232,9 +236,7 @@ export const ProjectDetailsForm: FC<IProjectDetailsForm> = (props) => {
               />
             )}
           />
-          <span className="text-xs text-red-500">
-            <>{errors?.name?.message}</>
-          </span>
+          <span className="text-xs text-red-500">{errors?.name?.message}</span>
         </div>
         <div className="flex flex-col gap-1">
           <h4 className="text-sm">Description</h4>
